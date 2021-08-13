@@ -1,0 +1,96 @@
+#!/bin/bash
+
+master="development"
+patch_job=0
+
+for ((i = 1; i <= $#; i++ )); do
+	
+    if [ "${!i}" == "--help" ] || [ "${!i}" == "-h" ]
+    then
+		echo -e "\n"
+		echo "This script will automatic commit changes for you. It will suggest commit message which comes from the branch name."
+		echo "Press Enter to use the suggested message or enter your own"
+		echo -e "\n"
+		echo "Usage: gg [ -p 'patch_job_number' ] [ -m 'master_branch' ] "
+        echo "Possile arguments:"
+		echo "--master | -m 'master_branch'"
+		echo "--patch  | -p 'patch_job_number'"
+		exit 1
+		
+	elif [ "${!i}" == "--master" ] || [ "${!i}" == "-m" ]
+    then
+		i=$((i+1))
+		master="${!i}"
+		echo "\nrebase against: ${master}\n"
+	 
+	elif [ "${!i}" == "--patch" ] || [ "${!i}" == "-p" ]
+    then
+		i=$((i+1))
+		patch_job="${!i}"
+	
+	else
+		echo "Wrong arguments: ${!i}"
+		exit 1
+    fi
+done
+
+git status
+
+echo -e "\nAdding changes\n"
+
+git add .
+
+git status
+
+branch_name=$(git symbolic-ref --short -q HEAD)
+branch_no=$(cut -d '-' -f1 <<< "${branch_name}")
+
+echo -e "\n${branch_name}\n"
+
+message_array=($(echo $branch_name | tr "-" "\n"))
+len=${#message_array[@]}-1
+
+$message
+for (( i=2; i<${len}; i++ ));
+do
+  message=$message${message_array[i]}" "
+done
+
+read -e -p "Enter the commit message or default: [${message}]" commitMessage
+
+commitMessage=${commitMessage:-${message}}
+
+if [[ ${patch_job} != 0 ]]
+then
+
+git commit -m "patch $patch_job: $commitMessage"
+
+echo -e "\npatch $patch_job: $commitMessage\n"
+
+else
+
+git commit -m "$branch_no: $commitMessage"
+
+echo -e "\n$branch_no: $commitMessage\n"
+
+fi
+
+echo -e "\nSwitching to ${master}\n"
+
+git checkout ${master}
+
+echo -e "\nFetching changes\n"
+
+git fetch
+
+echo -e "\nReset all changes\n"
+
+git reset --hard origin/${master}
+
+echo -e "\nChecking out ${branch}\n"
+
+git checkout ${branch_name}
+
+echo -e "\nDoing rebase\n"
+
+git rebase -i ${master}

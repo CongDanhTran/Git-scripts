@@ -1,0 +1,167 @@
+#!/bin/bash
+master="development"
+get_old_commit=false
+branch=""
+for ((i = 1; i <= $#; i++ )); do
+	
+    if [ "${!i}" == "--help" ] || [ "${!i}" == "-h" ]
+    then
+		echo -e "\nThis script will automatic check out the specified branch with built-in brach name completion. Enter job number then press TAB\n"
+		echo "Usage: gc branch_name [ -o ] [ -m 'master_branch' ] "
+        echo "Possile arguments:"
+		echo "--master  	|  -m  'master_branch'"
+		echo "--old		|  -o "
+		exit 1
+		
+	elif [ "${!i}" == "--master" ] || [ "${!i}" == "-m" ]
+    then
+	
+		 i=$((i+1))
+		 master="${!i}"
+		 echo -e "rebase: ${master}"
+		 
+	elif [ "${!i}" == "--old" ] || [ "${!i}" == "-o" ]
+    then
+	
+		get_old_commit=true
+		
+	else
+	
+		if [ "$i" -eq "1" ]
+		then
+		branch="${!i}"
+		continue
+		fi
+		
+		echo "Wrong arguments: ${!i}"
+		
+		exit 1
+    fi
+	
+done
+
+git status
+
+echo -e "\nAre you sure to continue? You may lose your files if you haven't committed\n"
+
+read -p "Yes (y) / No (n)  " to_continue
+
+case "$to_continue" in 
+  
+  y|Y|Yes|YES)
+  ;;
+  
+  n|N|no|No|NO) 
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
+echo -e "\nSwitching to ${master}\n"
+
+git checkout ${master}
+
+echo -e "\nFetching changes\n"
+
+git fetch
+
+echo -e "\nReset all changes\n"
+
+git reset --hard origin/${master}
+
+#clipboard=$(</dev/clipboard)
+
+echo -e "\nChecking out ${branch}\n"
+
+git checkout $branch
+
+if $get_old_commit ; then 
+echo -e "\nHow do you want to get old commit back?"
+
+read -e -p "Hard (h) / Soft with Job Number (sj) / Soft HEAD^ (s) / No (n)  " choice_old_commit
+
+case "$choice_old_commit" in 
+
+
+  h|H|hard|Hard|HARD ) 
+  #echo -e "\nHard reset\n"
+  #read -p "Enter commit hash: " commit_hash
+  git reset --hard origin/$branch
+  git reset --soft HEAD^
+  
+  echo -e "\nGot commit back - Check your Visual Studio\n"
+  ;;
+  
+  s|S|soft|Soft|SOFT ) 
+  echo -e "\nSoft reset head^\n";
+  git reset --soft HEAD^
+  
+  echo -e "\nGot commit back - Check your Visual Studio\n"
+  ;;
+  
+  sj|SJ|Sj|sJ) 
+  echo -e "\nSoft reset with job number\n";
+  git reset --soft origin/$branch
+  
+  echo -e "\n\nGot commit back - Check your Visual Studio\n"
+  ;;
+  
+  
+  n|N|no|No|NO) 
+  echo -e "\nNo -- EXIT"
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
+
+
+
+
+echo -e "\nDo you want to stash changes / rebase against lasted "${master}"?"
+
+read -p "Rebase (r) / Stash (s) / No (n)  " choice_rebase
+
+case "$choice_rebase" in 
+
+  r|R|rebase|Rebase|REBASE ) 
+  echo -e "\nRebase against "${master}"\n"
+  read -p "Is it a patch? Yes (y) / No (n)  " is_patch
+  
+  case "$is_patch" in 
+  
+  y|Y|Yes|YES)
+	read -p "Enter the patch job number: " patch_number
+	patch_job=$(echo "$patch_number" | tr -d ' ')
+	gg -p ${patch_job} -m ${master} 
+  ;;
+  
+  n|N|no|No|NO) 
+  gg -m ${master} 
+  ;;
+  
+  * ) echo "invalid";;
+  esac
+  ;;
+  
+  s|S|stash|Stash|STASH) 
+  echo -e "\nStash changes\n";
+  git stash
+  git reset --hard origin/${master}
+  git pull origin ${master}
+  git stash apply
+  
+  echo -e "\nCall gg to commit changes\n";
+  ;;
+ 
+  n|N|no|No|NO) 
+  echo -e "\nNo -- EXIT"
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
+fi

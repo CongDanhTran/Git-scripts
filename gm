@@ -1,0 +1,143 @@
+#!/bin/bash
+
+master="development"
+branch=""
+for ((i = 1; i <= $#; i++ )); do
+	
+    if [ "${!i}" == "--help" ] || [ "${!i}" == "-h" ]
+    then
+		echo -e "\nThis script automates the merging process for code reviewer. For those you don't have the permission to do so, please do not use this script.\n"
+		echo "Usage: gm branch_name [ -m 'master_branch' ]"
+        echo "Possile arguments:"
+		echo "--master  	|  -m  'master_branch'"
+		exit 1
+		
+	elif [ "${!i}" == "--master" ] || [ "${!i}" == "-m" ]
+    then
+	
+		 i=$((i+1))
+		 master="${!i}"
+		 echo -e "rebase: ${master}"
+		 
+	else
+	
+		if [ "$i" -eq "1" ]
+		then
+		branch="${!i}"
+		continue
+		fi
+		
+		echo "Wrong arguments: ${!i}"
+		
+		exit 1
+    fi
+	
+done
+
+git status
+
+echo -e "\nAre you sure to continue? You may lose your files if you haven't committed\n"
+
+read -p "Yes (y) / No (n)  " to_continue
+
+case "$to_continue" in 
+  
+  y|Y|Yes|YES)
+  ;;
+  
+  n|N|no|No|NO) 
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
+echo -e "\nSwitching to ${master}\n"
+
+git checkout ${master}
+
+echo -e "\nFetching changes\n"
+
+git fetch
+
+echo -e "\nReset all changes\n"
+
+git reset --hard origin/${master}
+
+echo -e "\nChecking out ${branch}\n"
+
+git checkout $branch
+
+echo -e "\nReview the changes in Visual Studio\n"
+
+echo -e "\nDo you want to rebase against lasted ${master}?"
+
+read -p "Yes (y) / No (n)  " choice_rebase
+
+case "$choice_rebase" in 
+
+  y|Y|Yes|YES) 
+  echo -e "\nRebase against ${master}\n"
+  git rebase -i ${master}
+  ;;
+  
+ 
+  n|N|no|No|NO) 
+  echo -e "\nNo -- EXIT"
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
+
+echo -e "\nSolve the conflict then you can continue\n"
+
+echo -e "\nDo you want to merge into ${master}?"
+
+read -p "Yes to continue rebase (y) / No to abort rebase (n)  " choice_merge
+
+case "$choice_merge" in 
+
+  y|Y|Yes|YES)
+  echo -e "\nContinuing rebase"
+  git rebase --continue
+  echo -e "\nSwitching to ${master}\n"
+  git checkout ${master}
+  echo -e "\nMerging into ${master}\n"
+  git merge ${branch_name}
+  ;;
+  
+ 
+  n|N|no|No|NO)
+  echo -e "\nAborting rebase"
+  git rebase --abort
+  echo -e "\nEXIT"
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
+echo -e "\nDo you want to push?"
+
+read -p "Yes (y) / No (n)  " choice_push
+
+case "$choice_push" in 
+
+  y|Y|Yes|YES) 
+  echo -e "\nPushing to ${master}\n"
+  git push
+  git fetch
+  git reset --hard origin/${master}
+  ;;
+  
+ 
+  n|N|no|No|NO) 
+  echo -e "\nNo -- EXIT"
+  exit 1
+  ;;
+  
+  * ) echo "invalid";;
+esac
+
